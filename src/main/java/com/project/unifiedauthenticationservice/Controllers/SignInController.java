@@ -1,13 +1,17 @@
 package com.project.unifiedauthenticationservice.Controllers;
 
+import com.project.unifiedauthenticationservice.Controllers.Dto.AuthResponseDto;
 import com.project.unifiedauthenticationservice.Controllers.Form.SignIn;
+import com.project.unifiedauthenticationservice.config.JwtTokenUtil;
 import com.project.unifiedauthenticationservice.models.User;
 import com.project.unifiedauthenticationservice.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,18 +22,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/auth")
 public class SignInController {
 
-    private final AuthenticationManager authenticationManager;
+    @Autowired
+    private AuthenticationManager authenticationManager;
 
     @Autowired
-    public SignInController(AuthenticationManager authenticationManager) {
-        this.authenticationManager = authenticationManager;
-    }
+    private JwtTokenUtil jwtTokenUtil;
 
     @Autowired
     private UserService userService;
 
     @PostMapping("/signin")
-    public ResponseEntity<String> authenticateUser(@RequestBody SignIn signInRequest) {
+    public ResponseEntity<AuthResponseDto> authenticateUser(@RequestBody SignIn signInRequest) {
+        try {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         signInRequest.getUsername(),
@@ -37,7 +41,16 @@ public class SignInController {
                 )
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        return ResponseEntity.ok("User signed in successfully");
+
+        String token = jwtTokenUtil.generateToken(signInRequest.getUsername());
+
+        AuthResponseDto authResponse = new AuthResponseDto();
+        authResponse.setToken(token);
+
+        return ResponseEntity.ok(authResponse);
+        } catch (AuthenticationException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthResponseDto());
+        }
     }
 
     @PostMapping("/signup")

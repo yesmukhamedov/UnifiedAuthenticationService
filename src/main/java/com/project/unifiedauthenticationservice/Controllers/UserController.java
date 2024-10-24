@@ -1,5 +1,6 @@
 package com.project.unifiedauthenticationservice.Controllers;
 
+import com.project.unifiedauthenticationservice.Controllers.Form.RegistrationForm;
 import com.project.unifiedauthenticationservice.models.User;
 import com.project.unifiedauthenticationservice.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,14 +31,9 @@ public class UserController {
         }
     }
 
-    @PostMapping
-    public User createUser(@RequestBody User user) {
-        return userService.createUser(user);
-    }
-
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User userDetails) {
-        User updatedUser = userService.updateUser(id, userDetails);
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody RegistrationForm form) {
+        User updatedUser = userService.updateUser(id, form);
         if (updatedUser != null) {
             return ResponseEntity.ok(updatedUser);
         } else {

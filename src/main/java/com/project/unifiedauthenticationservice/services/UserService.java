@@ -1,5 +1,7 @@
 package com.project.unifiedauthenticationservice.services;
 
+import com.project.unifiedauthenticationservice.Controllers.Form.RegistrationForm;
+import com.project.unifiedauthenticationservice.converter.UserConverter;
 import com.project.unifiedauthenticationservice.models.User;
 import com.project.unifiedauthenticationservice.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,11 +15,13 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserConverter converter;
     private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, UserConverter converter, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.converter = converter;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -33,19 +37,16 @@ public class UserService {
         return userRepository.findByUsername(username);
     }
 
-    public User createUser(User user) {
+    public User createUser(RegistrationForm form) {
+        User user = converter.convertToModel(form);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
 
-    public User updateUser(Long id, User userDetails) {
+    public User updateUser(Long id, RegistrationForm form) {
         User user = userRepository.findById(id).orElse(null);
-        if (user != null) {
-            user.setUsername(userDetails.getUsername());
-            user.setEmail(userDetails.getEmail());
-            user.setPassword(userDetails.getPassword());
-            return userRepository.save(user);
-        }
+        if (user != null)
+            return userRepository.save(converter.convertToModel(form));
         return null;
     }
 

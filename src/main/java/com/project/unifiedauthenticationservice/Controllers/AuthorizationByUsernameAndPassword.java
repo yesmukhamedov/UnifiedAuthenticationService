@@ -1,9 +1,10 @@
 package com.project.unifiedauthenticationservice.Controllers;
 
 import com.project.unifiedauthenticationservice.Controllers.Dto.AuthResponseDto;
-import com.project.unifiedauthenticationservice.Controllers.Form.SignIn;
+import com.project.unifiedauthenticationservice.Controllers.Form.AuthenticationForm;
+import com.project.unifiedauthenticationservice.Controllers.Form.RegistrationForm;
 import com.project.unifiedauthenticationservice.config.JwtTokenUtil;
-import com.project.unifiedauthenticationservice.models.User;
+import com.project.unifiedauthenticationservice.converter.UserConverter;
 import com.project.unifiedauthenticationservice.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -19,8 +20,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/auth")
-public class SignInController {
+@RequestMapping("/byUsernameAndPassword")
+public class AuthorizationByUsernameAndPassword {
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -31,18 +32,21 @@ public class SignInController {
     @Autowired
     private UserService userService;
 
-    @PostMapping("/signin")
-    public ResponseEntity<AuthResponseDto> authenticateUser(@RequestBody SignIn signInRequest) {
+    @Autowired
+    private UserConverter converter;
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponseDto> authenticateUser(@RequestBody AuthenticationForm form) {
         try {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        signInRequest.getUsername(),
-                        signInRequest.getPassword()
+                        form.getUsername(),
+                        form.getPassword()
                 )
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        String token = jwtTokenUtil.generateToken(signInRequest.getUsername());
+        String token = jwtTokenUtil.generateToken(form.getUsername());
 
         AuthResponseDto authResponse = new AuthResponseDto();
         authResponse.setToken(token);
@@ -53,12 +57,11 @@ public class SignInController {
         }
     }
 
-    @PostMapping("/signup")
-    public ResponseEntity<String> registerUser(@RequestBody User user) {
-        if (userService.findByUsername(user.getUsername()).isPresent()) {
-            return ResponseEntity.badRequest().body("Error: Username is already taken!");
-        }
-        userService.createUser(user);
-        return ResponseEntity.ok("User registered successfully");
+    @PostMapping("/register")
+    public ResponseEntity<AuthResponseDto> registerUser(@RequestBody RegistrationForm form) {
+        if (userService.findByUsername(form.getUsername()).isPresent())
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new AuthResponseDto());
+        userService.createUser(form);
+        return authenticateUser(converter.convertToAuthenticationForm(form));
     }
 }

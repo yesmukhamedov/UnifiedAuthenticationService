@@ -1,41 +1,40 @@
 CREATE TABLE users (
-                       id SERIAL PRIMARY KEY,
-                       user_id UUID NOT NULL UNIQUE,
-                       status VARCHAR(50),
-                       created_at TIMESTAMP DEFAULT now()
+    id UUID PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE TABLE emails (
-                        id SERIAL PRIMARY KEY,
-                        user_id UUID NOT NULL,
-                        email_ciphertext BYTEA NOT NULL,
-                        email_iv BYTEA NOT NULL,
-                        verified BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT now()
+CREATE TABLE user_identifiers (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id),
+    type VARCHAR(16) NOT NULL,
+    value TEXT NOT NULL,
+    verified BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL,
+    UNIQUE (type, value)
 );
 
-CREATE TABLE user_phones (
-                             id SERIAL PRIMARY KEY,
-                             user_id UUID NOT NULL,
-                             phone_ciphertext BYTEA NOT NULL,
-                             phone_iv BYTEA NOT NULL,
-                             verified BOOLEAN DEFAULT FALSE,
-                             created_at TIMESTAMP DEFAULT now()
+CREATE TABLE otp_challenges (
+    id UUID PRIMARY KEY,
+    purpose VARCHAR(16) NOT NULL,
+    type VARCHAR(16) NOT NULL,
+    value TEXT NOT NULL,
+    user_id UUID NULL REFERENCES users(id),
+    code_hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE TABLE user_passwords (
-                                id SERIAL PRIMARY KEY,
-                                user_id UUID NOT NULL,
-                                password_hash TEXT NOT NULL,
-                                created_at TIMESTAMP DEFAULT now()
+CREATE INDEX idx_otp_challenges_type_value ON otp_challenges(type, value);
+CREATE INDEX idx_otp_challenges_expires_consumed ON otp_challenges(expires_at, consumed_at);
+
+CREATE TABLE refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id),
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE TABLE user_profiles (
-                               id SERIAL PRIMARY KEY,
-                               user_id UUID NOT NULL,
-                               first_name_ciphertext BYTEA NOT NULL,
-                               last_name_ciphertext BYTEA NOT NULL,
-                               birthdate_ciphertext BYTEA NOT NULL,
-                               iv BYTEA NOT NULL,
-                               created_at TIMESTAMP DEFAULT now()
-);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);

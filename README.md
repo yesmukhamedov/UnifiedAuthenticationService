@@ -22,6 +22,13 @@ Update `src/main/resources/application.properties` or set environment variables:
 
 ## Local development
 
+Flyway in this project does not support PostgreSQL 16.x for local development. Use PostgreSQL 15 via Docker Compose. If you previously ran Postgres 16 locally, reset the container and volume:
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
 ```bash
 cd /path/to/UnifiedAuthenticationService
 docker compose up -d

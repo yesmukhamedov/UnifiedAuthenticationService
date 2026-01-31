@@ -1,12 +1,16 @@
 # Unified Authentication Service
 
-Passwordless authentication service built with Spring Boot 3.5, PostgreSQL, Flyway, JWT, and OpenFeign.
+Passwordless authentication service built with Spring Boot 3.4, PostgreSQL, Flyway, JWT, and OpenFeign.
 
 ## Requirements
 
 - JDK 17
 - Maven 3.9+
 - PostgreSQL 14+
+
+## Version alignment
+
+This service uses Spring Boot 3.4.5 together with the Spring Cloud 2024.0.0 release train. Spring Cloud 2024.0.0 expects Spring Boot 3.4.x, so the versions are aligned to keep the compatibility verifier enabled and ensure `spring-cloud-starter-openfeign` resolves correctly. 
 
 ## Configure
 

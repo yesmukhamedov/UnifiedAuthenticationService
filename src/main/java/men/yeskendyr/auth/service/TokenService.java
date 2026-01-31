@@ -1,25 +1,28 @@
 package men.yeskendyr.auth.service;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import javax.crypto.Mac;
-import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
+import men.yeskendyr.auth.config.AuthProperties;
 import men.yeskendyr.auth.config.JwtProperties;
 import men.yeskendyr.auth.entity.RefreshToken;
 import men.yeskendyr.auth.entity.User;
@@ -35,25 +38,44 @@ import org.springframework.transaction.annotation.Transactional;
 public class TokenService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
+    private final AuthProperties authProperties;
+    private final JwtKeyService jwtKeyService;
     private final Clock clock;
-    private final SecretKey jwtKey;
 
-    public TokenService(RefreshTokenRepository refreshTokenRepository, JwtProperties jwtProperties, Clock clock) {
+    public TokenService(RefreshTokenRepository refreshTokenRepository,
+                        JwtProperties jwtProperties,
+                        AuthProperties authProperties,
+                        JwtKeyService jwtKeyService,
+                        Clock clock) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtProperties = jwtProperties;
+        this.authProperties = authProperties;
+        this.jwtKeyService = jwtKeyService;
         this.clock = clock;
-        this.jwtKey = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
+        if (jwtProperties.getRefreshTokenSecret() == null || jwtProperties.getRefreshTokenSecret().isBlank()) {
+            throw new IllegalStateException("auth.jwt.refresh-token-secret must be configured");
+        }
     }
 
-    public String issueAccessToken(UUID userId) {
+    public String issueAccessToken(User user) {
         Instant now = Instant.now(clock);
         Instant expiresAt = now.plus(jwtProperties.getAccessTtl());
-        return Jwts.builder()
-                .setSubject(userId.toString())
+        var builder = Jwts.builder()
+                .setSubject(user.getId().toString())
+                .claim("scope", "user")
+                .claim("roles", List.of("USER"))
+                .setId(UUID.randomUUID().toString())
+                .setHeaderParam("kid", jwtKeyService.getKeyId())
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(expiresAt))
-                .signWith(jwtKey, SignatureAlgorithm.HS256)
-                .compact();
+                .signWith(jwtKeyService.getPrivateKey(), SignatureAlgorithm.RS256);
+        if (authProperties.getIssuer() != null && !authProperties.getIssuer().isBlank()) {
+            builder.setIssuer(authProperties.getIssuer());
+        }
+        if (authProperties.getAudience() != null && !authProperties.getAudience().isEmpty()) {
+            builder.claim("aud", authProperties.getAudience());
+        }
+        return builder.compact();
     }
 
     @Transactional
@@ -69,7 +91,7 @@ public class TokenService {
 
     @Transactional
     public TokenPair issueTokens(User user) {
-        String accessToken = issueAccessToken(user.getId());
+        String accessToken = issueAccessToken(user);
         String refreshToken = issueRefreshToken(user);
         return new TokenPair(accessToken, refreshToken);
     }
@@ -104,15 +126,51 @@ public class TokenService {
 
     public UUID parseUserId(String token) {
         try {
-            String subject = Jwts.parserBuilder()
-                    .setSigningKey(jwtKey)
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody()
-                    .getSubject();
+            String subject = parseClaims(token).getSubject();
             return UUID.fromString(subject);
         } catch (JwtException | IllegalArgumentException ex) {
             throw new BadCredentialsException("Invalid access token", ex);
+        }
+    }
+
+    public Claims parseClaims(String token) {
+        Jws<Claims> jws = Jwts.parserBuilder()
+                .setSigningKey(jwtKeyService.getPublicKey())
+                .build()
+                .parseClaimsJws(token);
+        Claims claims = jws.getBody();
+        validateClaims(claims);
+        return claims;
+    }
+
+    public List<String> extractRoles(Claims claims) {
+        Object roles = claims.get("roles");
+        if (roles instanceof Collection<?> collection) {
+            return collection.stream().map(Object::toString).toList();
+        }
+        return List.of("USER");
+    }
+
+    private void validateClaims(Claims claims) {
+        String issuer = authProperties.getIssuer();
+        if (issuer != null && !issuer.equals(claims.getIssuer())) {
+            throw new JwtException("Invalid issuer");
+        }
+        List<String> expectedAudience = authProperties.getAudience();
+        if (expectedAudience != null && !expectedAudience.isEmpty()) {
+            Object audClaim = claims.get("aud");
+            List<String> tokenAudience;
+            if (audClaim instanceof Collection<?> collection) {
+                tokenAudience = collection.stream().map(Object::toString).toList();
+            } else if (audClaim != null) {
+                tokenAudience = List.of(audClaim.toString());
+            } else {
+                tokenAudience = List.of();
+            }
+            boolean matches = tokenAudience.stream().anyMatch(expectedAudience::contains);
+            if (!matches) {
+                throw new JwtException("Invalid audience");
+            }
         }
     }
 
@@ -125,7 +183,8 @@ public class TokenService {
     private String hashToken(String raw) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8),
+            SecretKeySpec secretKey = new SecretKeySpec(jwtProperties.getRefreshTokenSecret()
+                    .getBytes(StandardCharsets.UTF_8),
                     "HmacSHA256");
             mac.init(secretKey);
             byte[] digest = mac.doFinal(raw.getBytes(StandardCharsets.UTF_8));

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import men.yeskendyr.auth.service.TokenService;
+import io.jsonwebtoken.Claims;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -31,12 +32,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
             try {
-                UUID userId = tokenService.parseUserId(token);
+                Claims claims = tokenService.parseClaims(token);
+                UUID userId = UUID.fromString(claims.getSubject());
                 UserPrincipal principal = new UserPrincipal(userId);
+                List<SimpleGrantedAuthority> authorities = tokenService.extractRoles(claims).stream()
+                        .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                        .map(SimpleGrantedAuthority::new)
+                        .toList();
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         principal,
                         null,
-                        List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                        authorities
                 );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (AuthenticationException ex) {

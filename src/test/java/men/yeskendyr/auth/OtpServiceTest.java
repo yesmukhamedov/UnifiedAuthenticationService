@@ -38,9 +38,13 @@ class OtpServiceTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
         registry.add("spring.flyway.enabled", () -> true);
-        registry.add("jwt.secret", () -> "test-secret-key-test-secret-key-test-secret-key");
-        registry.add("jwt.access-ttl", () -> "PT15M");
-        registry.add("jwt.refresh-ttl", () -> "P7D");
+        registry.add("auth.issuer", () -> "http://localhost");
+        registry.add("auth.audience", () -> "unified-services");
+        registry.add("auth.introspection.client-id", () -> "test-client");
+        registry.add("auth.introspection.client-secret", () -> "test-secret");
+        registry.add("auth.jwt.access-ttl", () -> "PT15M");
+        registry.add("auth.jwt.refresh-ttl", () -> "P7D");
+        registry.add("auth.jwt.refresh-token-secret", () -> "test-refresh-secret-key");
         registry.add("otp.ttl", () -> "PT5M");
     }
 

@@ -31,24 +31,25 @@ public class MeController {
 
     @GetMapping
     public ResponseEntity<MeResponse> me(@AuthenticationPrincipal UserPrincipal principal) {
-        UUID userId = principal.userId();
+        UUID userId = principal.getUserId();
         return ResponseEntity.ok(new MeResponse(userId, meService.listIdentifiers(userId)));
     }
 
     @PostMapping("/identifiers/start")
     public ResponseEntity<OtpChallengeResponse> startLink(@AuthenticationPrincipal UserPrincipal principal,
                                                           @Valid @RequestBody IdentifierStartRequest request) {
-        IdentifierType type = request.email() != null ? IdentifierType.EMAIL : IdentifierType.PHONE;
+        IdentifierType type = request.getEmail() != null ? IdentifierType.EMAIL : IdentifierType.PHONE;
         String value = IdentifierNormalizer.normalize(type,
-                request.email() != null ? request.email() : request.phoneNumber());
-        OtpChallengeResponse response = meService.startLink(principal.userId(), type, value);
+                request.getEmail() != null ? request.getEmail() : request.getPhoneNumber());
+        OtpChallengeResponse response = meService.startLink(principal.getUserId(), type, value);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/identifiers/verify")
     public ResponseEntity<IdentifierResponse> verifyLink(@AuthenticationPrincipal UserPrincipal principal,
                                                          @Valid @RequestBody IdentifierVerifyRequest request) {
-        IdentifierResponse response = meService.verifyLink(principal.userId(), request.challengeId(), request.code());
+        IdentifierResponse response = meService.verifyLink(principal.getUserId(), request.getChallengeId(),
+                request.getCode());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

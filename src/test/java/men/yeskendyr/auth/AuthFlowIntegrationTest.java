@@ -94,14 +94,14 @@ class AuthFlowIntegrationTest {
         assertThat(challenge).isNotNull();
         AuthVerifyResponse verifyResponse = restTemplate.postForObject(
                 "/api/v1/auth/verify",
-                new AuthVerifyRequest(challenge.challengeId(), "123456"),
+                new AuthVerifyRequest(challenge.getChallengeId(), "123456"),
                 AuthVerifyResponse.class
         );
         assertThat(verifyResponse).isNotNull();
-        assertThat(verifyResponse.accessToken()).isNotBlank();
+        assertThat(verifyResponse.getAccessToken()).isNotBlank();
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(verifyResponse.accessToken());
+        headers.setBearerAuth(verifyResponse.getAccessToken());
         ResponseEntity<MeResponse> meResponse = restTemplate.exchange(
                 "/api/v1/me",
                 org.springframework.http.HttpMethod.GET,
@@ -110,14 +110,14 @@ class AuthFlowIntegrationTest {
         );
         assertThat(meResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(meResponse.getBody()).isNotNull();
-        assertThat(meResponse.getBody().identifiers()).isNotEmpty();
+        assertThat(meResponse.getBody().getIdentifiers()).isNotEmpty();
 
         TokenResponse refresh = restTemplate.postForObject(
                 "/api/v1/auth/refresh",
-                new RefreshRequest(verifyResponse.refreshToken()),
+                new RefreshRequest(verifyResponse.getRefreshToken()),
                 TokenResponse.class
         );
         assertThat(refresh).isNotNull();
-        assertThat(refresh.accessToken()).isNotBlank();
+        assertThat(refresh.getAccessToken()).isNotBlank();
     }
 }

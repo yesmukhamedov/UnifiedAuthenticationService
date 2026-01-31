@@ -44,8 +44,11 @@ public class IntrospectionController {
     }
 
     private List<String> normalizeAudience(Object aud) {
-        if (aud instanceof Collection<?> collection) {
-            return collection.stream().map(Object::toString).toList();
+        if (aud instanceof Collection) {
+            Collection<?> collection = (Collection<?>) aud;
+            return collection.stream()
+                    .map(Object::toString)
+                    .collect(java.util.stream.Collectors.toList());
         }
         if (aud != null) {
             return List.of(aud.toString());

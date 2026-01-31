@@ -16,6 +16,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.AllArgsConstructor;
@@ -145,8 +146,11 @@ public class TokenService {
 
     public List<String> extractRoles(Claims claims) {
         Object roles = claims.get("roles");
-        if (roles instanceof Collection<?> collection) {
-            return collection.stream().map(Object::toString).toList();
+        if (roles instanceof Collection) {
+            Collection<?> collection = (Collection<?>) roles;
+            return collection.stream()
+                    .map(Object::toString)
+                    .collect(Collectors.toList());
         }
         return List.of("USER");
     }
@@ -160,8 +164,11 @@ public class TokenService {
         if (expectedAudience != null && !expectedAudience.isEmpty()) {
             Object audClaim = claims.get("aud");
             List<String> tokenAudience;
-            if (audClaim instanceof Collection<?> collection) {
-                tokenAudience = collection.stream().map(Object::toString).toList();
+            if (audClaim instanceof Collection) {
+                Collection<?> collection = (Collection<?>) audClaim;
+                tokenAudience = collection.stream()
+                        .map(Object::toString)
+                        .collect(java.util.stream.Collectors.toList());
             } else if (audClaim != null) {
                 tokenAudience = List.of(audClaim.toString());
             } else {

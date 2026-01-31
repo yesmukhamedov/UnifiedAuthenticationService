@@ -2,6 +2,10 @@ package men.yeskendyr.auth.controller;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Tag(name = "Tokens", description = "Token introspection")
 public class IntrospectionController {
     private final TokenService tokenService;
 
@@ -23,6 +28,11 @@ public class IntrospectionController {
 
     @PostMapping(value = "/oauth2/introspect", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Introspect access token", tags = {"Tokens"})
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Introspection response returned"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized client")
+    })
     public ResponseEntity<Map<String, Object>> introspect(@RequestParam("token") String token) {
         try {
             Claims claims = tokenService.parseClaims(token);

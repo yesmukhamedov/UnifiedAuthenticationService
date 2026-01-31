@@ -14,6 +14,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
 import javax.crypto.Mac;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -48,9 +49,9 @@ public class TokenService {
         Instant now = Instant.now(clock);
         Instant expiresAt = now.plus(jwtProperties.getAccessTtl());
         return Jwts.builder()
-                .subject(userId.toString())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(expiresAt))
+                .setSubject(userId.toString())
+                .setIssuedAt(Date.from(now))
+                .setExpiration(Date.from(expiresAt))
                 .signWith(jwtKey, SignatureAlgorithm.HS256)
                 .compact();
     }

@@ -3,11 +3,8 @@ package men.yeskendyr.auth.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
-import men.yeskendyr.auth.dto.AuthStartRequest;
-import men.yeskendyr.auth.dto.AuthVerifyRequest;
-import men.yeskendyr.auth.dto.AuthVerifyResponse;
-import men.yeskendyr.auth.dto.OtpChallengeResponse;
-import men.yeskendyr.auth.dto.TokenResponse;
+
+import men.yeskendyr.auth.dto.*;
 import men.yeskendyr.auth.config.JwtProperties;
 import men.yeskendyr.auth.entity.IdentifierType;
 import men.yeskendyr.auth.entity.OtpChallenge;
@@ -92,4 +89,6 @@ public class AuthService {
         return user;
     }
 
+    public void register(RegisterRequest request) {
+    }
 }

@@ -47,9 +47,9 @@ public class AuthService {
 
     @Transactional
     public OtpChallengeResponse start(AuthStartRequest request) {
-        IdentifierType type = request.email() != null ? IdentifierType.EMAIL : IdentifierType.PHONE;
+        IdentifierType type = request.getEmail() != null ? IdentifierType.EMAIL : IdentifierType.PHONE;
         String value = IdentifierNormalizer.normalize(type,
-                request.email() != null ? request.email() : request.phoneNumber());
+                request.getEmail() != null ? request.getEmail() : request.getPhoneNumber());
         OtpChallenge challenge = otpService.createChallenge(OtpPurpose.LOGIN, type, value, null);
         return new OtpChallengeResponse(challenge.getId(), challenge.getExpiresAt(),
                 otpService.mask(type, value), type);
@@ -57,7 +57,7 @@ public class AuthService {
 
     @Transactional
     public AuthVerifyResponse verify(AuthVerifyRequest request) {
-        OtpChallenge challenge = otpService.consumeChallenge(request.challengeId(), request.code());
+        OtpChallenge challenge = otpService.consumeChallenge(request.getChallengeId(), request.getCode());
         if (challenge.getPurpose() != OtpPurpose.LOGIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, ErrorCode.INVALID_REQUEST, "Invalid OTP purpose");
         }
@@ -67,14 +67,15 @@ public class AuthService {
                 .map(UserIdentifier::getUser)
                 .orElseGet(() -> createUserWithIdentifier(type, value));
         TokenService.TokenPair tokens = tokenService.issueTokens(user);
-        return new AuthVerifyResponse(user.getId(), tokens.accessToken(), tokens.refreshToken(),
-                "Bearer", jwtProperties.accessTtl().toSeconds());
+        return new AuthVerifyResponse(user.getId(), tokens.getAccessToken(), tokens.getRefreshToken(),
+                "Bearer", jwtProperties.getAccessTtl().toSeconds());
     }
 
     @Transactional
     public TokenResponse refresh(String refreshToken) {
         TokenService.TokenPair tokens = tokenService.refreshTokens(refreshToken);
-        return new TokenResponse(tokens.accessToken(), tokens.refreshToken(), "Bearer", jwtProperties.accessTtl().toSeconds());
+        return new TokenResponse(tokens.getAccessToken(), tokens.getRefreshToken(), "Bearer",
+                jwtProperties.getAccessTtl().toSeconds());
     }
 
     @Transactional

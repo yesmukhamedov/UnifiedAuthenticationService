@@ -44,7 +44,7 @@ public class OtpService {
     public OtpChallenge createChallenge(OtpPurpose purpose, IdentifierType type, String value, User user) {
         String code = otpGenerator.generate();
         Instant now = Instant.now(clock);
-        Instant expiresAt = now.plus(otpProperties.ttl());
+        Instant expiresAt = now.plus(otpProperties.getTtl());
         String hash = passwordEncoder.encode(code);
         OtpChallenge challenge = new OtpChallenge(
                 UUID.randomUUID(),

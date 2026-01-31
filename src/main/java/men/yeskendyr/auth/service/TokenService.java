@@ -15,6 +15,10 @@ import java.util.Date;
 import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 import men.yeskendyr.auth.config.JwtProperties;
 import men.yeskendyr.auth.entity.RefreshToken;
 import men.yeskendyr.auth.entity.User;
@@ -37,12 +41,12 @@ public class TokenService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtProperties = jwtProperties;
         this.clock = clock;
-        this.jwtKey = Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
+        this.jwtKey = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
     }
 
     public String issueAccessToken(UUID userId) {
         Instant now = Instant.now(clock);
-        Instant expiresAt = now.plus(jwtProperties.accessTtl());
+        Instant expiresAt = now.plus(jwtProperties.getAccessTtl());
         return Jwts.builder()
                 .subject(userId.toString())
                 .issuedAt(Date.from(now))
@@ -54,7 +58,7 @@ public class TokenService {
     @Transactional
     public String issueRefreshToken(User user) {
         Instant now = Instant.now(clock);
-        Instant expiresAt = now.plus(jwtProperties.refreshTtl());
+        Instant expiresAt = now.plus(jwtProperties.getRefreshTtl());
         String rawToken = generateOpaqueToken();
         String tokenHash = hashToken(rawToken);
         RefreshToken refreshToken = new RefreshToken(user, tokenHash, expiresAt, null, now);
@@ -120,7 +124,7 @@ public class TokenService {
     private String hashToken(String raw) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(jwtProperties.secret().getBytes(StandardCharsets.UTF_8),
+            SecretKeySpec secretKey = new SecretKeySpec(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8),
                     "HmacSHA256");
             mac.init(secretKey);
             byte[] digest = mac.doFinal(raw.getBytes(StandardCharsets.UTF_8));
@@ -130,6 +134,12 @@ public class TokenService {
         }
     }
 
-    public record TokenPair(String accessToken, String refreshToken) {
+    @Getter
+    @AllArgsConstructor
+    @EqualsAndHashCode
+    @ToString
+    public static class TokenPair {
+        private final String accessToken;
+        private final String refreshToken;
     }
 }

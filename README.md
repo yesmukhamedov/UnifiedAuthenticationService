@@ -20,21 +20,17 @@ Update `src/main/resources/application.properties` or set environment variables:
 - `jwt.refresh-ttl` (ISO-8601 duration, e.g. `P30D`)
 - `otp.ttl` (ISO-8601 duration, e.g. `PT5M`)
 
-## Run PostgreSQL (Docker)
+## Local development
 
 ```bash
-docker run --name unified-auth-db -e POSTGRES_DB=unified_auth \
-  -e POSTGRES_USER=auth_user -e POSTGRES_PASSWORD=auth_password \
-  -p 5432:5432 -d postgres:16
+cd /path/to/UnifiedAuthenticationService
+docker compose up -d
+mvn spring-boot:run
+docker compose logs -f
+docker compose down
 ```
 
-## Run the service
-
-```bash
-./mvnw spring-boot:run
-```
-
-Flyway migrations are applied on startup.
+Spring Boot uses the credentials from `application.properties`: `jdbc:postgresql://localhost:5432/unified_auth` with `auth_user` / `auth_password`.
 
 ## Sample flow
 

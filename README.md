@@ -28,7 +28,7 @@ Update `src/main/resources/application.properties` or set environment variables:
 
 ## Local development
 
-Flyway in this project does not support PostgreSQL 16.x for local development. Use PostgreSQL 15 via Docker Compose. If you previously ran Postgres 16 locally, reset the container and volume:
+Flyway 11+ requires the `flyway-database-postgresql` module to recognize PostgreSQL 16+ database versions. Keep that dependency aligned with `flyway-core` so PostgreSQL 16.x starts cleanly without the "Unsupported Database" error.
 
 ```bash
 docker compose down -v

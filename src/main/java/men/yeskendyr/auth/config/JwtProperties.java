@@ -11,9 +11,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ConfigurationProperties(prefix = "jwt")
+@ConfigurationProperties(prefix = "auth.jwt")
 public class JwtProperties {
-    private String secret;
     private Duration accessTtl;
     private Duration refreshTtl;
+    private String refreshTokenSecret;
+    private String privateKeyPem;
+    private String publicKeyPem;
+    private String privateKeyLocation;
+    private String publicKeyLocation;
 }

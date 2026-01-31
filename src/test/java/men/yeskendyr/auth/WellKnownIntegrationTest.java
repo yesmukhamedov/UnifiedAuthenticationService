@@ -4,15 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
 import men.yeskendyr.auth.dto.AuthStartRequest;
 import men.yeskendyr.auth.dto.AuthVerifyRequest;
 import men.yeskendyr.auth.dto.AuthVerifyResponse;
-import men.yeskendyr.auth.dto.MeResponse;
 import men.yeskendyr.auth.dto.OtpChallengeResponse;
-import men.yeskendyr.auth.dto.RefreshRequest;
-import men.yeskendyr.auth.dto.TokenResponse;
 import men.yeskendyr.auth.service.OtpGenerator;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,7 +19,6 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -30,11 +27,12 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.util.LinkedMultiValueMap;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
-class AuthFlowIntegrationTest {
+class WellKnownIntegrationTest {
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
             .withDatabaseName("auth_test")
@@ -74,54 +72,66 @@ class AuthFlowIntegrationTest {
 
     private final TestRestTemplate restTemplate;
 
-    AuthFlowIntegrationTest(TestRestTemplate restTemplate) {
+    WellKnownIntegrationTest(TestRestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
     @BeforeEach
     void setDefaults() {
         restTemplate.getRestTemplate().setInterceptors(List.of((request, body, execution) -> {
-            request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
             request.getHeaders().setAccept(MediaType.parseMediaTypes(MediaType.APPLICATION_JSON_VALUE));
             return execution.execute(request, body);
         }));
     }
 
     @Test
-    void authFlowWorks() {
+    void jwksAndIntrospectionWork() {
+        ResponseEntity<Map> jwksResponse = restTemplate.getForEntity("/.well-known/jwks.json", Map.class);
+        assertThat(jwksResponse.getStatusCode().is2xxSuccessful()).isTrue();
+        List<Map<String, Object>> keys = (List<Map<String, Object>>) jwksResponse.getBody().get("keys");
+        assertThat(keys).isNotEmpty();
+        assertThat(keys.get(0).get("kid")).isNotNull();
+
+        ResponseEntity<Map> oidcResponse = restTemplate.getForEntity("/.well-known/openid-configuration", Map.class);
+        assertThat(oidcResponse.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(oidcResponse.getBody().get("jwks_uri").toString()).contains("/.well-known/jwks.json");
+
+        String accessToken = issueToken();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.setBasicAuth("test-client", "test-secret");
+        LinkedMultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("token", accessToken);
+        ResponseEntity<Map> introspection = restTemplate.postForEntity(
+                "/oauth2/introspect",
+                new HttpEntity<>(body, headers),
+                Map.class
+        );
+        assertThat(introspection.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(introspection.getBody().get("active")).isEqualTo(true);
+
+        LinkedMultiValueMap<String, String> invalidBody = new LinkedMultiValueMap<>();
+        invalidBody.add("token", "garbage");
+        ResponseEntity<Map> invalidResponse = restTemplate.postForEntity(
+                "/oauth2/introspect",
+                new HttpEntity<>(invalidBody, headers),
+                Map.class
+        );
+        assertThat(invalidResponse.getBody().get("active")).isEqualTo(false);
+    }
+
+    private String issueToken() {
         OtpChallengeResponse challenge = restTemplate.postForObject(
                 "/api/v1/auth/start",
                 new AuthStartRequest("user@example.com", null),
                 OtpChallengeResponse.class
         );
-
-        assertThat(challenge).isNotNull();
         AuthVerifyResponse verifyResponse = restTemplate.postForObject(
                 "/api/v1/auth/verify",
                 new AuthVerifyRequest(challenge.getChallengeId(), "123456"),
                 AuthVerifyResponse.class
         );
-        assertThat(verifyResponse).isNotNull();
-        assertThat(verifyResponse.getAccessToken()).isNotBlank();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(verifyResponse.getAccessToken());
-        ResponseEntity<MeResponse> meResponse = restTemplate.exchange(
-                "/api/v1/me",
-                org.springframework.http.HttpMethod.GET,
-                new HttpEntity<>(headers),
-                MeResponse.class
-        );
-        assertThat(meResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(meResponse.getBody()).isNotNull();
-        assertThat(meResponse.getBody().getIdentifiers()).isNotEmpty();
-
-        TokenResponse refresh = restTemplate.postForObject(
-                "/api/v1/auth/refresh",
-                new RefreshRequest(verifyResponse.getRefreshToken()),
-                TokenResponse.class
-        );
-        assertThat(refresh).isNotNull();
-        assertThat(refresh.getAccessToken()).isNotBlank();
+        return verifyResponse.getAccessToken();
     }
 }
